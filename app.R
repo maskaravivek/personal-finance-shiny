@@ -1,18 +1,17 @@
 library(shiny)
 library(shinyjs)
+library(httr)
 
 # UI Definition
 ui <- fluidPage(
   useShinyjs(), # For dynamic UI control
-  tags$head(
-    tags$script(src = "https://unpkg.com/@descope/web-component@3.32.0/dist/index.js"),
-    tags$script(src = "descope-auth.js") # Include custom JavaScript
+  titlePanel("Personal Finance Dashboard with Descope OIDC Auth"),
+  
+  div(
+    id = "authContainer",
+    actionButton("login", "Log In with Descope")
   ),
-  titlePanel("Personal Finance Dashboard with Descope Auth"),
-
-  # Descope Authentication UI
-  div(id = "authContainer"),
-
+  
   hidden(
     div(
       id = "appContent",
@@ -35,55 +34,97 @@ ui <- fluidPage(
 
 # Server Definition
 server <- function(input, output, session) {
-  # Initialize Descope Auth
-  session$sendCustomMessage("initDescopeAuth", list(
-    projectId = "P2qpxcB4jbjMmW2aHRqDvJCvYvvu",
-    flowId = "sign-up-or-in",
-    theme = "light",
-    containerId = "authContainer",
-    successInput = "user_authenticated",
-    errorInput = "auth_error"
-  ))
-
-  observeEvent(input$user_authenticated, {
-    if (!is.null(input$user_authenticated)) {
-      showNotification("Login successful!", type = "message")
-      show("appContent")
+  # Descope OIDC details
+  client_id <- "P2r0ufqvZBtglcx6fUTUXmQSpgrn"
+  client_secret <- "K2r3uY0r3QvLnkwCVWD17dmeyXRTkqdjX57hjqfJZu2QVqxmeS2IaKfy1Xl5y2QeM0vbMuM"
+  auth_url <- "https://api.descope.com/oauth2/v1/authorize"
+  token_url <- "https://api.descope.com/oauth2/v1/token"
+  user_info_url <- "https://api.descope.com/oauth2/v1/userinfo"
+  redirect_uri <- "https://fa5b3030bcc5445f86b37290d1814414.app.posit.cloud/p/3a306723/"
+  
+  generate_state <- function() {
+    paste(sample(c(letters, LETTERS, 0:9), 16, replace = TRUE), collapse = "")
+  }
+  
+  observeEvent(input$login, {
+    state <- generate_state()
+    session$userData$state <- state  # Store the state for verification later
+    
+    # Generate login URL with state
+    login_url <- sprintf(
+      "%s?client_id=%s&redirect_uri=%s&response_type=code&scope=openid%%20profile%%20email&state=%s",
+      auth_url, client_id, redirect_uri, state
+    )
+    browseURL(login_url)
+  })
+  
+  observe({
+    # Parse query parameters from the URL
+    query <- parseQueryString(session$clientData$url_search)
+    
+    if (!is.null(query$code)) {
+      # Exchange the authorization code for tokens
+      token_response <- POST(
+        token_url,
+        authenticate(client_id, client_secret),
+        body = list(
+          grant_type = "authorization_code",
+          code = query$code,
+          redirect_uri = redirect_uri
+        ),
+        encode = "form"
+      )
+      
+      if (status_code(token_response) == 200) {
+        access_token <- content(token_response)$access_token
+        
+        # Fetch user information
+        user_info_response <- GET(
+          user_info_url,
+          add_headers(Authorization = paste("Bearer", access_token))
+        )
+        
+        if (status_code(user_info_response) == 200) {
+          user_info <- content(user_info_response)
+          showNotification("Login successful!", type = "message")
+          show("appContent")
+          hide("authContainer")
+          cat("User Info:", toString(user_info), "\n")
+        } else {
+          showNotification("Failed to fetch user information.", type = "error")
+        }
+      } else {
+        showNotification("Failed to exchange authorization code.", type = "error")
+      }
     }
   })
-
-  observeEvent(input$auth_error, {
-    if (!is.null(input$auth_error)) {
-      showNotification("Authentication failed. Please try again.", type = "error")
-    }
-  })
-
+  
   # App logic remains the same
   expense_data <- reactiveVal(data.frame(
     Month = rep(month.abb, each = 4),
     Category = rep(c("Rent", "Groceries", "Utilities", "Entertainment"), times = 12),
     Amount = runif(48, 100, 1000)
   ))
-
+  
   observeEvent(input$file, {
     req(input$file)
     uploaded_data <- read.csv(input$file$datapath)
     expense_data(uploaded_data)
   })
-
+  
   output$expenseTrend <- renderPlot({
     data <- expense_data()
     aggregate_data <- aggregate(Amount ~ Month, data, sum)
     barplot(aggregate_data$Amount, names.arg = aggregate_data$Month, col = "skyblue", main = "Monthly Expense Trend", ylab = "Total Expenses ($)", xlab = "Month")
   })
-
+  
   output$summaryTable <- renderTable({
     data <- expense_data()
     summary <- aggregate(Amount ~ Category, data, sum)
     colnames(summary) <- c("Category", "Total Amount ($)")
     summary
   })
-
+  
   output$categoryTrend <- renderPlot({
     req(input$category)
     data <- expense_data()
@@ -92,7 +133,7 @@ server <- function(input, output, session) {
     plot(aggregate_data$Amount, type = "o", col = "darkgreen", xaxt = "n", main = paste("Trend for", input$category), xlab = "Month", ylab = "Amount ($)")
     axis(1, at = 1:12, labels = month.abb)
   })
-
+  
   output$categoryTable <- renderTable({
     req(input$category)
     data <- expense_data()
