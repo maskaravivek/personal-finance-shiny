@@ -1,0 +1,23 @@
+; /etc/rstudio-connect/rstudio-connect.gcfg
+
+[Server]
+; Server.Address specifies the network address that Connect listens on.
+; Use 0.0.0.0 so it’s accessible both within the container and via mapped ports.
+Address = 0.0.0.0
+; Server.RURL is how users will access Connect externally. Adjust for your domain or localhost:3939.
+; e.g. http://localhost:3939 or http://your-docker-host:3939
+; This is important for certain redirect URLs.
+SenderEmail = "support@yourcompany.com"
+
+[Authentication]
+Provider = "oauth2"
+
+[OAuth2]
+ClientId = "P2r0ufqvZBtglcx6fUTUXmQSpgrn"
+ClientSecret = "K2r3uY0r3QvLnkwCVWD17dmeyXRTkqdjX57hjqfJZu2QVqxmeS2IaKfy1Xl5y2QeM0vbMu"
+OpenIDConnectIssuer = "https://api.descope.com/P2r0ufqvZBtglcx6fUTUXmQSpgrn"
+RequireUsernameClaim = true
+
+[HTTP]
+; Optionally force HTTP over port 3939
+Listen = :3939
