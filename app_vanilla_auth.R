@@ -37,7 +37,7 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   # Initialize Descope Auth
   session$sendCustomMessage("initDescopeAuth", list(
-    projectId = "P2qpxcB4jbjMmW2aHRqDvJCvYvvu",
+    projectId = "P2pBl7sYVGg1RWtv4jC7zfO9TnUN",
     flowId = "sign-up-or-in",
     theme = "light",
     containerId = "authContainer",
@@ -58,25 +58,34 @@ server <- function(input, output, session) {
     }
   })
   
-  # App logic remains the same
+  # Reactive value for expense data
   expense_data <- reactiveVal(data.frame(
     Month = rep(month.abb, each = 4),
     Category = rep(c("Rent", "Groceries", "Utilities", "Entertainment"), times = 12),
     Amount = runif(48, 100, 1000)
   ))
   
+  # Update category choices dynamically
+  observe({
+    data <- expense_data()
+    updateSelectInput(session, "category", choices = unique(data$Category))
+  })
+  
+  # Handle file upload
   observeEvent(input$file, {
     req(input$file)
     uploaded_data <- read.csv(input$file$datapath)
     expense_data(uploaded_data)
   })
   
+  # Render the monthly expense trend plot
   output$expenseTrend <- renderPlot({
     data <- expense_data()
     aggregate_data <- aggregate(Amount ~ Month, data, sum)
     barplot(aggregate_data$Amount, names.arg = aggregate_data$Month, col = "skyblue", main = "Monthly Expense Trend", ylab = "Total Expenses ($)", xlab = "Month")
   })
   
+  # Render the summary table for total expenses by category
   output$summaryTable <- renderTable({
     data <- expense_data()
     summary <- aggregate(Amount ~ Category, data, sum)
@@ -84,6 +93,7 @@ server <- function(input, output, session) {
     summary
   })
   
+  # Render the category-specific trend plot
   output$categoryTrend <- renderPlot({
     req(input$category)
     data <- expense_data()
@@ -93,6 +103,7 @@ server <- function(input, output, session) {
     axis(1, at = 1:12, labels = month.abb)
   })
   
+  # Render the category-specific table
   output$categoryTable <- renderTable({
     req(input$category)
     data <- expense_data()
