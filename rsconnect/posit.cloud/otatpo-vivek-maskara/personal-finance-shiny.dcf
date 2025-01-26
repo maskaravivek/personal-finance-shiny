@@ -4,9 +4,10 @@ username: otatpo-vivek-maskara
 account: otatpo-vivek-maskara
 server: posit.cloud
 hostUrl: https://api.posit.cloud/v1
-appId: 9497777
-bundleId: 9606605
-url: https://posit.cloud/content/9497777
+appId: 9613835
+bundleId: 9701104
+url: https://posit.cloud/content/9613835
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
+ignoredFiles: Dockerfile|rstudio-connect.gcfg
