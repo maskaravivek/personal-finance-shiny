@@ -45,7 +45,7 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   session$sendCustomMessage("initDescopeAuth", list(
-    projectId = "P2pBl7sYVGg1RWtv4jC7zfO9TnUN",  # <-- Your Descope project ID
+    projectId = "<YOUR_DESCOPE_PROJECT_ID>",  # <-- Your Descope project ID
     flowId = "sign-up-or-in",                  # <-- Your Descope flow ID
     theme = "light",
     containerId = "authContainer",
